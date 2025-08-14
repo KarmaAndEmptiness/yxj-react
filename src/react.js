@@ -18,8 +18,7 @@ function createElement(type, props, ...children)
     }
   }
 }
-const isProperty = (key) => key !== "children";
-let nextUnit = null;
+let nextUnit = null, rootFiber;
 function render(element, container) {
   nextUnit = {
     type: container.type,
@@ -31,16 +30,8 @@ function render(element, container) {
     child: null,
     sibling: null
   }
-  // const dom =
-  //   element.type === "TEXT_ELEMENT"
-  //     ? document.createTextNode("")
-  //     : document.createElement(element.type);
-  // Object.keys(element.props)
-  //   .filter(isProperty)
-  //   .forEach((name) => (dom[name] = element.props[name]));
-  // container.append(dom);
-  // element.props.children &&
-  //   element.props.children.forEach((child) => render(child, dom));
+  rootFiber = nextUnit;
+  
 }
 function workLoop(deadline)
 {
@@ -50,12 +41,49 @@ function workLoop(deadline)
     nextUnit = performUnit(nextUnit);
     shouldYield = deadline.timeRemaining() < 1;
   }
+  if (!nextUnit && rootFiber)
+  {
+    commitRoot();
+  }
   requestIdleCallback(workLoop);
 }
 requestIdleCallback(workLoop);
 
+function commitRoot()
+{
+  commitWork(rootFiber.child);
+  rootFiber = null;
+}
+
+function commitWork(fiber)
+{
+  if (!fiber) return;
+  const parent = fiber.parent;
+  const parentDom = parent.dom;
+  parentDom.append(fiber.dom);
+  commitWork(fiber.child);
+  commitWork(fiber.sibling);
+}
+
+const isProperty = (key) => key !== "children";
+function createDom (fiber)
+{
+  const dom =
+    fiber.type === "TEXT_ELEMENT"
+      ? document.createTextNode("")
+      : document.createElement(fiber.type);
+  Object.keys(fiber.props)
+    .filter(isProperty)
+    .forEach((name) => (dom[name] = fiber.props[name]));
+    return dom;
+}
+
 function performUnit(fiber)
 {
+  if (!fiber.dom)
+  {
+    fiber.dom = createDom(fiber);
+  }
   const elements = fiber.props.children;
   let index = 0, prevFiber = null;
   while (index < elements.length)
@@ -64,7 +92,7 @@ function performUnit(fiber)
     const newFiber = {
       type: child.type,
       props: child.props,
-      dom: child,
+      dom: null,
       parent: fiber,
       sibling: null
     }
