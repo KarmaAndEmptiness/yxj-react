@@ -14,4 +14,8 @@
 //   },
 // };
 import React from './react'
-export const App = <div id="pink" style="background-color: pink; width: 100px; height: 100px;">yxj</div>
+// export const App = <div id="pink" style="background-color: pink; width: 100px; height: 100px;">yxj</div>
+export function App (props) {
+  console.log(props);
+  return <div id="pink" style="background-color: pink; width: 100px; height: 100px;">yxj - {props.name}</div>;
+}

@@ -58,9 +58,16 @@ function commitRoot()
 function commitWork(fiber)
 {
   if (!fiber) return;
-  const parent = fiber.parent;
+  let parent = fiber.parent;
+  while (!parent.dom)
+  {
+    parent = parent.parent;
+  }
   const parentDom = parent.dom;
-  parentDom.append(fiber.dom);
+  if (fiber.dom)
+  {
+    parentDom.append(fiber.dom);
+  }
   commitWork(fiber.child);
   commitWork(fiber.sibling);
 }
@@ -78,9 +85,14 @@ function createDom (fiber)
     return dom;
 }
 
+const isFunction = fiber => fiber.type instanceof Function;
 function performUnit(fiber)
 {
-  if (!fiber.dom)
+  if (isFunction(fiber))
+  {
+    fiber.props.children = [fiber.type(fiber.props)];
+  }
+  else if (!fiber.dom)
   {
     fiber.dom = createDom(fiber);
   }
