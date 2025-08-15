@@ -14,7 +14,7 @@ function createElement(type, props, ...children)
     type,
     props: {
       ...props,
-      children: children.map(child => typeof child === "string" ? createTextElement(child) : child)
+      children: children.map(child => typeof child === "object" ? child : createTextElement(child) )
     }
   }
 }
@@ -96,13 +96,41 @@ function performUnit(fiber)
 {
   if (isFunction(fiber))
   {
-    fiber.props.children = [fiber.type(fiber.props)];
+    updateFunctionComponent(fiber);
   }
-  else if (!fiber.dom)
+  else 
   {
-    fiber.dom = createDom(fiber);
+    updateHostComponent(fiber);
+  }
+  if (fiber.child) return fiber.child;
+  let nextFiber = fiber;
+  while (nextFiber)
+  {
+    if (nextFiber.sibling) 
+    {
+      return nextFiber.sibling;
+    }
+    nextFiber = nextFiber.parent;
+  }
+}
+function updateHostComponent(fiber)
+{
+  if (!fiber.dom)
+  {
+      fiber.dom = createDom(fiber);
   }
   const elements = fiber.props.children;
+  reconcileChildren(fiber, elements);
+
+}
+function updateFunctionComponent(fiber)
+{
+  const children = [fiber.type(fiber.props)];
+  reconcileChildren(fiber, children);
+}
+
+function reconcileChildren(fiber, elements)
+{
   let index = 0, prevFiber = null;
   while (index < elements.length)
   {
@@ -124,16 +152,6 @@ function performUnit(fiber)
     }
     prevFiber = newFiber;
     index++;
-  }
-  if (fiber.child) return fiber.child;
-  let nextFiber = fiber;
-  while (nextFiber)
-  {
-    if (nextFiber.sibling) 
-    {
-      return nextFiber.sibling;
-    }
-    nextFiber = nextFiber.parent;
   }
 }
 export default {
