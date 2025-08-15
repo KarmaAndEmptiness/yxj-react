@@ -73,6 +73,8 @@ function commitWork(fiber)
 }
 
 const isProperty = (key) => key !== "children";
+const isEvent = key => key.startsWith("on"); 
+const eventType = type => type.substr(2).toLowerCase();
 function createDom (fiber)
 {
   const dom =
@@ -80,8 +82,12 @@ function createDom (fiber)
       ? document.createTextNode("")
       : document.createElement(fiber.type);
   Object.keys(fiber.props)
-    .filter(isProperty)
+    .filter(value => isProperty(value) && !isEvent(value))
     .forEach((name) => (dom[name] = fiber.props[name]));
+    
+  Object.keys(fiber.props)
+    .filter(isEvent)
+    .forEach((name) => (dom.addEventListener(eventType(name), fiber.props[name])));
     return dom;
 }
 
