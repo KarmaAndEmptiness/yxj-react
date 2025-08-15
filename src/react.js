@@ -18,7 +18,7 @@ function createElement(type, props, ...children)
     }
   }
 }
-let nextUnit = null, rootFiber;
+let nextUnit = null, rootFiber, currentRoot = null;
 function render(element, container) {
   nextUnit = {
     type: container.type,
@@ -28,7 +28,7 @@ function render(element, container) {
     dom: container,
     parent: null,
     child: null,
-    sibling: null
+    sibling: null,
   }
   rootFiber = nextUnit;
   
@@ -51,19 +51,40 @@ requestIdleCallback(workLoop);
 
 function commitRoot()
 {
+  deletions.forEach(fiber => commitWork(fiber));
+  deletions = [];
   commitWork(rootFiber.child);
+  currentRoot = rootFiber;
   rootFiber = null;
+}
+
+function commitDeletion (fiber, parentDom)
+{
+  if (fiber.dom)
+  {
+    parentDom.removeChild(fiber.dom);
+  }
+  else
+  {
+    commitDeletion(fiber.child, parentDom);
+  }
 }
 
 function commitWork(fiber)
 {
   if (!fiber) return;
+  
   let parent = fiber.parent;
   while (!parent.dom)
   {
     parent = parent.parent;
   }
   const parentDom = parent.dom;
+  if (fiber.effectTag === "DELETION")
+  {
+    commitDeletion(fiber, parentDom);
+    return;
+  }
   if (fiber.dom)
   {
     parentDom.append(fiber.dom);
@@ -128,20 +149,51 @@ function updateFunctionComponent(fiber)
   const children = [fiber.type(fiber.props)];
   reconcileChildren(fiber, children);
 }
-
+let deletions = [];
 function reconcileChildren(fiber, elements)
 {
   let index = 0, prevFiber = null;
+  let oldFiber = fiber.alternate && fiber.alternate.child;
   while (index < elements.length)
   {
     const child = elements[index];
-    const newFiber = {
-      type: child.type,
-      props: child.props,
-      dom: null,
-      parent: fiber,
-      sibling: null
+    const sameType = oldFiber && oldFiber.type === child.type;
+    let newFiber =null;
+    if (sameType)
+    {
+      newFiber = {
+        type: child.type,
+        props: child.props,
+        dom: oldFiber.dom,
+        parent: fiber,
+        sibling: null,
+        alternate: oldFiber,
+        effectTag: "UPDATE"
+      }
     }
+    if (child && !sameType)
+    {
+      newFiber = {
+          type: child.type,
+          props: child.props,
+          dom: null,
+          parent: fiber,
+          sibling: null,
+          alternate: null,
+          effectTag: "PLACEMENT"
+      }
+    }
+    if (oldFiber && !sameType)
+    {
+      oldFiber.effectTag = "DELETION";
+      deletions.push(oldFiber);
+    }
+  
+    if (oldFiber)
+    {
+      oldFiber = oldFiber.sibling;
+    }
+
     if (index === 0)
     {
       fiber.child = newFiber;
@@ -154,7 +206,19 @@ function reconcileChildren(fiber, elements)
     index++;
   }
 }
+function update()
+{
+  nextUnit = {
+  ...currentRoot,
+  alternate: currentRoot
+  }
+  rootFiber = nextUnit;
+}
 export default {
   render,
   createElement
+};
+
+export {
+  update
 };

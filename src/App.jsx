@@ -13,17 +13,18 @@
 //     ],
 //   },
 // };
-import React from './react'
+import React, {update} from './react'
 // export const App = <div id="pink" style="background-color: pink; width: 100px; height: 100px;">yxj</div>
 let a = 1;
 export function App (props) {
   const handleClick = () => {
     a++;
+    update();
   }
   return (
     <>
-    <div id="pink" style="background-color: pink; width: 100px; height: 100px;">yxj - {props.name}</div>
     <button onClick = {handleClick}>yxj - {a}</button>
+    {a % 2 ? <h1>1</h1> : <div>2</div>}
     </>
   );
 
