@@ -143,7 +143,6 @@ function reconcileChildren(wipFiber, elements)
 function commitRoot()
 {
   deletions.forEach(commitWork);
-  deletions = [];
   commitWork(wipRoot.child);
   currentRoot = wipRoot;
   wipRoot = null;
@@ -162,7 +161,7 @@ function commitWork(fiber)
   const domParent = domParentFiber.dom;
   if (fiber.effectTag === "PLACEMENT" && fiber.dom)
   {
-    domParent.append(fiber.dom);
+    domParent.appendChild(fiber.dom);
   }
   else if (fiber.effectTag === "UPDATE")
   {
@@ -171,6 +170,7 @@ function commitWork(fiber)
   else if (fiber.effectTag === "DELETION")
   {
     commitDeletion(fiber, domParent);
+    return;
   }
   commitWork(fiber.child);
   commitWork(fiber.sibling);
