@@ -13,13 +13,12 @@
 //     ],
 //   },
 // };
-import React, {update} from './react'
+import React from './react'
 // export const App = <div id="pink" style="background-color: pink; width: 100px; height: 100px;">yxj</div>
-let a = 1;
 export function App (props) {
+  let [a, setA] = React.useState(1);
   const handleClick = () => {
-    a++;
-    update();
+    setA(a => a + 1);
   }
   return (
     <>
