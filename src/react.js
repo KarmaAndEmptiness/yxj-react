@@ -24,7 +24,7 @@ function render(container, element)
   wipRoot = {
     dom: container,
     props: {
-      children: [element]  
+      children: [element]
     },
     alternate: currentRoot
   }
@@ -86,17 +86,53 @@ function updateHostComponent(fiber)
   {
     fiber.dom = createDom(fiber);
   }
-  reconcileChildren(fiber, fiber.props.children);
+  const children = fiber.props.children;
+  reconcileChildren(fiber, children);
+}
+function createDom(fiber)
+{
+  const dom = fiber.type === "TEXT_ELEMENT" ? document.createTextNode("") : document.createElement(fiber.type);
+  updateDom(dom, {}, fiber.props);
+  return dom;
+}
+function updateDom(dom, prevProps, nextProps)
+{
+  const isEvent = key => key.startsWith("on");
+  const eventType = key => key.substr(2).toLowerCase();
+  const isProperty = key => key !== "children" && !isEvent(key);
+  const isGone = nextProps => key => !(key in nextProps);
+  const isNew = (prevProps, nextProps) => key => prevProps[key] !== nextProps[key];
+
+  Object.keys(prevProps)
+  .filter(isEvent)
+  .filter(key => isGone(nextProps)(key) || isNew(prevProps, nextProps)(key))
+  .forEach(name => dom.removeEventListener(eventType(name), prevProps[name]));
+
+  Object.keys(prevProps)
+  .filter(isProperty)
+  .filter(isGone(nextProps))
+  .forEach(name => dom[name] = "");
+
+  Object.keys(nextProps)
+  .filter(isEvent)
+  .filter(isNew(prevProps, nextProps))
+  .forEach(name => dom.addEventListener(eventType(name), nextProps[name]));
+
+  Object.keys(nextProps)
+  .filter(isProperty)
+  .filter(isNew(prevProps, nextProps))
+  .forEach(name => dom[name] = nextProps[name]);
 }
 let deletions = [];
 function reconcileChildren(wipFiber, elements)
 {
-  let index = 0, prevSibling = null, oldFiber = wipFiber.alternate && wipFiber.alternate.child;
+  let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
+  let index = 0, prevSibling = null;
   while (index < elements.length || oldFiber)
   {
     const element = elements[index];
+    const sameType = oldFiber && oldFiber.type === element.type;
     let newFiber = null;
-    const sameType = oldFiber && element.type === oldFiber.type;
     if (sameType)
     {
       newFiber = {
@@ -107,7 +143,7 @@ function reconcileChildren(wipFiber, elements)
         alternate: oldFiber,
         effectTag: "UPDATE"
       }
-    }
+    } 
     if (element && !sameType)
     {
       newFiber = {
@@ -120,7 +156,7 @@ function reconcileChildren(wipFiber, elements)
       }
     }
     if (oldFiber && !sameType)
-    { 
+    {
       oldFiber.effectTag = "DELETION";
       deletions.push(oldFiber);
     }
@@ -128,13 +164,13 @@ function reconcileChildren(wipFiber, elements)
     {
       wipFiber.child = newFiber;
     }
-    else
+    else 
     {
-      prevSibling.sibling = newFiber; 
+      prevSibling.sibling = newFiber;
     }
     prevSibling = newFiber;
     index++;
-    if (oldFiber)
+    if (oldFiber) 
     {
       oldFiber = oldFiber.sibling;
     }
@@ -159,49 +195,21 @@ function commitWork(fiber)
     domParentFiber = domParentFiber.parent;
   }
   const domParent = domParentFiber.dom;
-  if (fiber.effectTag === "PLACEMENT" && fiber.dom)
-  {
-    domParent.appendChild(fiber.dom);
-  }
-  else if (fiber.effectTag === "UPDATE")
-  {
-    updateDom(fiber.dom, fiber.alternate.props, fiber.props);
-  }
-  else if (fiber.effectTag === "DELETION")
+  if(fiber.effectTag === "DELETION")
   {
     commitDeletion(fiber, domParent);
     return;
   }
+  if(fiber.dom && fiber.effectTag === "PLACEMENT")
+  {
+    domParent.append(fiber.dom);
+  }
+  if(fiber.effectTag === "UPDATE")
+  {
+    updateDom(fiber.dom, fiber.alternate.props, fiber.props);
+  }
   commitWork(fiber.child);
   commitWork(fiber.sibling);
-}
-function updateDom(dom, prevProps, nextProps)
-{
-  const isEvent = key => key.startsWith("on");
-  const eventType = type => type.substr(2).toLowerCase();
-  const isProperty = key => key !== "children" && !isEvent(key);
-  const isGone = nextProps => key => !(key in nextProps);
-  const isNew = (prevProps, nextProps) => key => prevProps[key] !== nextProps[key];
-
-  Object.keys(prevProps)
-  .filter(isProperty)
-  .filter(isGone(nextProps))
-  .forEach(name => dom[name] = "");
-
-  Object.keys(prevProps)
-  .filter(isEvent)
-  .filter(key => isGone(nextProps)(key) || isNew(prevProps, nextProps)(key))
-  .forEach(name => dom.removeEventListener(eventType(name), prevProps[name]));
-
-  Object.keys(nextProps)
-  .filter(isProperty)
-  .filter(isNew(prevProps, nextProps))
-  .forEach(name => dom[name] = nextProps[name]);
-
-  Object.keys(nextProps)
-  .filter(isEvent)
-  .filter(isNew(prevProps, nextProps))
-  .forEach(name => dom.addEventListener(eventType(name), nextProps[name]));
 }
 function commitDeletion(fiber, domParent)
 {
@@ -214,44 +222,31 @@ function commitDeletion(fiber, domParent)
     commitDeletion(fiber.child, domParent);
   }
 }
-function createDom(fiber)
-{
-  const dom = fiber.type === "TEXT_ELEMENT" ? document.createTextNode("") : document.createElement(fiber.type);
-  updateDom(dom, {}, fiber.props);
-  return dom;
-}
 function useState(initial)
 {
-    const oldHook =
-    wipFiber.alternate &&
-    wipFiber.alternate.hooks &&
-    wipFiber.alternate.hooks[hookIndex]
+  const oldHook = wipFiber.alternate && wipFiber.alternate.hooks && wipFiber.alternate.hooks[hookIndex];
   const hook = {
     state: oldHook ? oldHook.state : initial,
-    queue: [],
+    queue: []
   }
-
-  const actions = oldHook ? oldHook.queue : []
-  actions.forEach(action => {
-    hook.state = action(hook.state)
-  })
-
+  const actions = oldHook ? oldHook.queue : [];
+  actions.forEach(action => hook.state = action(hook.state));
   const setState = action => {
-    hook.queue.push(action)
+    hook.queue.push(action);
     wipRoot = {
       dom: currentRoot.dom,
       props: currentRoot.props,
-      alternate: currentRoot,
+      alternate: currentRoot
     }
-    nextUnitOfWork = wipRoot
-    deletions = []
+    nextUnitOfWork = wipRoot;
+    deletions = [];
   }
-
-  wipFiber.hooks.push(hook)
-  hookIndex++
-  return [hook.state, setState]
+  wipFiber.hooks.push(hook);
+  hookIndex++;
+  return [hook.state, setState];
 }
-export default {
+export default
+{
   createElement,
   render,
   useState
